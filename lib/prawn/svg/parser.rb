@@ -75,8 +75,15 @@ class Prawn::Svg::Parser
       do_not_append_calls = %w(symbol defs clipPath).include?(element.name)
       element.state[:disable_drawing] = true if element.name == "clipPath"
 
+      anchor = element.attributes['text-anchor']
       element.each_child_element do |child|
         element.add_call "save"
+        if anchor
+          case child.name
+          when "text", "g"
+            child.attributes['text-anchor'] ||= anchor
+          end
+        end
         parse_element(child)
         element.add_call "restore"
       end
