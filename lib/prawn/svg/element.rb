@@ -56,6 +56,7 @@ class Prawn::Svg::Element
     parse_clip_path_attribute_and_call
     draw_types = parse_fill_and_stroke_attributes_and_call
     parse_stroke_width_attribute_and_call
+    parse_stroke_dasharray_attribute_and_call
     parse_font_attributes_and_call
 
     if draw_types.length > 0 && !@state[:disable_drawing] && !Prawn::Svg::Parser::CONTAINER_TAGS.include?(element.name)
@@ -148,6 +149,11 @@ class Prawn::Svg::Element
 
   def parse_stroke_width_attribute_and_call
     add_call('line_width', @document.distance(@attributes['stroke-width'])) if @attributes['stroke-width']
+  end
+
+  def parse_stroke_dasharray_attribute_and_call
+    return unless dasharray = @attributes['stroke-dasharray']
+    add_call('dash', dasharray.split(/[,\s]+/).map{|d| @document.distance(d).to_i}, :phase => @document.distance(@attributes['stroke-dashoffset']).to_i)
   end
 
   def parse_font_attributes_and_call
