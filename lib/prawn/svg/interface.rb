@@ -19,7 +19,10 @@ module Prawn
       #
       # +data+ is the SVG data to convert.  +prawn+ is your Prawn::Document object.
       #
-      # +options+ must contain the key :at, which takes a tuple of x and y co-ordinates.
+      # +options+ can contain the key :at, which takes a tuple of x and y co-ordinates.
+      # If :at is not specified the coordinates [0, cursor] are used.
+      # In this instance if the current bounds are the margin bounds and if the
+      # rendered SVG overflows the current page, a new page is created.
       #
       # +options+ can optionally contain the key :width or :height.  If both are
       # specified, only :width will be used.
@@ -28,8 +31,6 @@ module Prawn
         @data = data
         @prawn = prawn
         @options = options
-
-        @options[:at] or raise "options[:at] must be specified"
 
         Prawn::Svg::Font.load_external_fonts(prawn.font_families)
 
@@ -40,7 +41,16 @@ module Prawn
       # Draws the SVG to the Prawn::Document object.
       #
       def draw
-        prawn.bounding_box(@options[:at], :width => @document.width, :height => @document.height) do
+        x, y = @options[:at]
+        unless y
+          x ||= 0
+          y = prawn.cursor
+          if prawn.bounds.parent.nil? && y - @document.height < 0
+            prawn.bounds.move_past_bottom
+            y = prawn.cursor
+          end
+        end
+        prawn.bounding_box([x,y], :width => @document.width, :height => @document.height) do
           prawn.save_graphics_state do
             clip_rectangle 0, 0, @document.width, @document.height
             proc_creator(prawn, Parser.new(@document).parse).call
