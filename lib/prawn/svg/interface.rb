@@ -69,8 +69,8 @@ module Prawn
       end
 
       def rewrite_call_arguments(prawn, call, arguments)
-        if call == 'relative_draw_text'
-          call.replace "draw_text"
+        if /relative_(draw_text|text_box)/ =~ call
+          call.replace Regexp.last_match[1]
           arguments.last[:at][0] = @relative_text_position if @relative_text_position
         end
 
@@ -78,6 +78,23 @@ module Prawn
         when 'text_group'
           @relative_text_position = nil
           false
+
+        when 'text_box'
+          text, options = arguments
+
+          width = options[:width]
+          size = options[:size] || prawn.font_size
+          text_width = prawn.width_of(text, options.merge(:kerning => true))
+          options[:size] = size = size.to_f * width / text_width
+          options[:height] = size
+          options[:at][1] += size
+
+          if (anchor = options.delete(:text_anchor)) && %w(middle end).include?(anchor)
+            width /= 2 if anchor == 'middle'
+            options[:at][0] -= width
+          end
+
+          @relative_text_position = options[:at][0] + width
 
         when 'draw_text'
           text, options = arguments

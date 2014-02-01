@@ -30,6 +30,14 @@ class Prawn::Svg::Parser::Text
       opts[:text_anchor] = anchor
     end
 
+    if text_length = element.document.distance(attrs['textLength'])
+      text_command = 'text_box'
+      opts[:width] = text_length
+      opts[:overflow] = :shrink_to_fit
+    else
+      text_command = 'draw_text'
+    end
+
     element.element.children.each do |child|
       if child.node_type == :text
         text = child.value.strip.gsub(/\s+/, " ")
@@ -38,13 +46,13 @@ class Prawn::Svg::Parser::Text
           opts[:at] = [x_positions.first, y_positions.first]
 
           if x_positions.length > 1 || y_positions.length > 1
-            element.add_call 'draw_text', text[0..0], opts.dup
+            element.add_call text_command, text[0..0], opts.dup
             text = text[1..-1]
 
             x_positions.shift if x_positions.length > 1
             y_positions.shift if y_positions.length > 1
           else
-            element.add_call relative ? 'relative_draw_text' : 'draw_text', text, opts.dup
+            element.add_call relative ? "relative_#{text_command}" : text_command, text, opts.dup
             relative = true
             break
           end
