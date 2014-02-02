@@ -1,21 +1,36 @@
 class Prawn::Svg::Parser::Text
+  Delta = Prawn::Svg::Delta
   def parse(element)
     element.add_call_and_enter "text_group"
-    internal_parse(element, [element.document.x(0)], [element.document.y(0)], false)
+    internal_parse(element, [element.document.x(0)], [element.document.y(0)])
   end
 
   protected
-  def internal_parse(element, x_positions, y_positions, relative)
+  def internal_parse(element, x_positions, y_positions)
     attrs = element.attributes
 
-    if attrs['x'] || attrs['y']
-      relative = false
-      x_positions = attrs['x'].split(/[\s,]+/).collect {|n| element.document.x(n)} if attrs['x']
-      y_positions = attrs['y'].split(/[\s,]+/).collect {|n| element.document.y(n)} if attrs['y']
+    if attrs['x']
+      old_x_position = x_positions
+      x_positions = attrs['x'].split(/[\s,]+/).collect {|n| element.document.x(n)}
+      x_positions.concat(old_x_position[x_positions.length..-1]) if old_x_position.length > x_positions.length
     end
 
-    if attrs['dx'] || attrs['dy']
-      element.add_call_and_enter "translate", element.document.distance(attrs['dx'] || 0), -element.document.distance(attrs['dy'] || 0)
+    if attrs['y']
+      old_y_position = y_positions
+      y_positions = attrs['y'].split(/[\s,]+/).collect {|n| element.document.y(n)}
+      y_positions.concat(old_y_position[y_positions.length..-1]) if old_y_position.length > y_positions.length
+    end
+
+    if attrs['dx']
+      dx_positions = attrs['dx'].to_s.split(/[\s,]+/).collect {|n| element.document.distance(n)}
+      dx_positions.slice!(0...x_positions.length).each_with_index {|dx,i| x_positions[i] += dx }
+      dx_positions.each {|dx| x_positions << Delta.new(dx)}
+    end
+
+    if attrs['dy']
+      dy_positions = attrs['dy'].to_s.split(/[\s,]+/).collect {|n| -element.document.distance(n)}
+      dy_positions.slice!(0...y_positions.length).each_with_index {|dy,i| y_positions[i] += dy }
+      dy_positions.each {|dy| y_positions << y_positions.last + dy}
     end
 
     opts = {}
@@ -49,11 +64,15 @@ class Prawn::Svg::Parser::Text
             element.add_call text_command, text[0..0], opts.dup
             text = text[1..-1]
 
-            x_positions.shift if x_positions.length > 1
+            if x_positions.length > 1
+              x_positions.shift
+            else
+              x_positions[0] = Delta::ZERO
+            end
             y_positions.shift if y_positions.length > 1
           else
-            element.add_call relative ? "relative_#{text_command}" : text_command, text, opts.dup
-            relative = true
+            element.add_call text_command, text, opts.dup
+            x_positions[0] = Delta::ZERO
             break
           end
         end
@@ -62,7 +81,7 @@ class Prawn::Svg::Parser::Text
         element.add_call 'save'
         child.attributes['text-anchor'] ||= opts[:text_anchor] if opts[:text_anchor]
         child_element = Prawn::Svg::Element.new(element.document, child, element.calls, element.state.dup)
-        internal_parse(child_element, x_positions, y_positions, relative)
+        internal_parse(child_element, x_positions, y_positions)
         child_element.append_calls_to_parent
         element.add_call 'restore'
 

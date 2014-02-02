@@ -4,6 +4,17 @@
 #
 module Prawn
   module Svg
+
+    class Delta
+      def initialize(n)
+        @n = n
+      end
+      def +(value)
+        @n + value
+      end
+      ZERO = Delta.new(0)
+    end
+
     class Interface
       DEFAULT_FONT_PATHS = ["/Library/Fonts", "/System/Library/Fonts", "#{ENV["HOME"]}/Library/Fonts", "/usr/share/fonts/truetype"]
 
@@ -79,10 +90,6 @@ module Prawn
       end
 
       def rewrite_call_arguments(prawn, call, arguments)
-        if /relative_(draw_text|text_box)/ =~ call
-          call.replace Regexp.last_match[1]
-          arguments.last[:at][0] = @relative_text_position if @relative_text_position
-        end
 
         case call
         when 'text_group'
@@ -91,6 +98,8 @@ module Prawn
 
         when 'text_box'
           text, options = arguments
+          at = options[:at]
+          at[0] += @relative_text_position if at[0].is_a?(Delta)
 
           width = options[:width]
           size = options[:size] || prawn.font_size
@@ -101,23 +110,25 @@ module Prawn
 
           if (anchor = options.delete(:text_anchor)) && %w(middle end).include?(anchor)
             width /= 2 if anchor == 'middle'
-            options[:at][0] -= width
+            at[0] -= width
           end
 
-          @relative_text_position = options[:at][0] + width
+          @relative_text_position = at[0] + width
 
         when 'draw_text'
           text, options = arguments
+          at = options[:at]
+          at[0] += @relative_text_position if at[0].is_a?(Delta)
 
           width = prawn.width_of(text, options.merge(:kerning => true))
 
           if (anchor = options.delete(:text_anchor)) && %w(middle end).include?(anchor)
             width /= 2 if anchor == 'middle'
-            options[:at][0] -= width
+            at[0] -= width
           end
 
-          space_width = prawn.width_of("n", options)
-          @relative_text_position = options[:at][0] + width + space_width
+          # space_width = prawn.width_of("n", options)
+          @relative_text_position = at[0] + width
 
         when 'transformation_matrix'
           left = prawn.bounds.absolute_left
