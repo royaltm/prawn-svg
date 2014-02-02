@@ -137,7 +137,9 @@ class Prawn::Svg::Element
         state[type] = false
       elsif dec
         state[type] = true
-        if color = Prawn::Svg::Color.color_to_hex(dec)
+        if (matches = dec.match(/\Aurl\(#(.*)\)\z/)) && (gradient = document.gradients[matches[1]])
+          add_call("#{type}_gradient", *gradient)
+        elsif color = Prawn::Svg::Color.color_to_hex(dec)
           add_call "#{type}_color", color
         end
       end

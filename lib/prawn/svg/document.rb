@@ -20,7 +20,7 @@ class Prawn::Svg::Document
 
   attr_reader :root,
     :actual_width, :actual_height, :width, :height, :x_offset, :y_offset,
-    :cache_images, :fallback_font_name,
+    :cache_images, :fallback_font_name, :gradients,
     :css_parser, :elements_by_id
 
   def initialize(data, bounds, options)
@@ -31,6 +31,7 @@ class Prawn::Svg::Document
     @options = options
     @elements_by_id = {}
     @cache_images = options[:cache_images]
+    @gradients = {}
     @fallback_font_name = options.fetch(:fallback_font_name, DEFAULT_FALLBACK_FONT_NAME)
     @actual_width, @actual_height = bounds # set this first so % width/heights can be used
 
@@ -56,6 +57,21 @@ class Prawn::Svg::Document
 
     @width ||= @actual_width * @scale
     @height ||= @actual_height * @scale
+
+    if gradients = options[:gradients]
+      gradients.each_pair do |name, args|
+        @gradients[name] = (args.map do |arg|
+          case arg
+          when Array
+            [x(arg[0]), y(arg[1])]
+          when Numeric
+            distance(arg)
+          else
+            arg
+          end
+        end)
+      end
+    end
   end
 
   def x(value)
